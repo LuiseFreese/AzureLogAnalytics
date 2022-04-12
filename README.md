@@ -2,7 +2,7 @@
 
 Log Analytics is super powerful to collect data and give you insights on what's going on with your apps and resources. There is even an Azure Monitor Logs connector for Logic Apps.
 
-Very unfortunately, the connector doesn't support authentication with a Managed Identity - which means that you'd need an app registration again, which comes with its own challenges on secret handling.
+⚡ Very unfortunately, the connector doesn't support authentication with a Managed Identity - which means that you'd need an app registration again, which comes with its own challenges on secret handling.
 
 ![Azure Monitor connector](media/azuremonitorconnector.png)
 
