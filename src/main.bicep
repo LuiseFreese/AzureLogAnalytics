@@ -1,8 +1,10 @@
-param AzureLogAnalytics_ManagedIdentity_name string = 'Managed-Identity--${uniqueString(resourceGroup().id)}'
-param workflowName string = 'Logic-App--${uniqueString(resourceGroup().id)}'
-param workspaceName string = 'Log-Analytics-Workspace--${uniqueString(resourceGroup().id)}'
+param AzureLogAnalytics_ManagedIdentity_name string = 'Managed-Identity--Logging'
+param workflowName string = 'Logic-App--Logging'
+param workspaceName string = 'Log-Analytics-Workspace--Logging'
 param location string = resourceGroup().location
 param rootUrl string = 'https://api.loganalytics.io'
+param siteID string
+param listId string
 
 param roleDefinitionResourceId string = '73c42c96-874c-492b-b04d-ab87d138a893' //Reader
 
@@ -47,29 +49,52 @@ resource workflow 'Microsoft.Logic/workflows@2019-05-01' = {
           }
         }
       }
-      actions: {
-        HTTP: {
-          runAfter: {}
-          type: 'Http'
-          inputs: {
-            authentication: {
-
-              audience: rootUrl
-              identity: resourceId('Microsoft.ManagedIdentity/userAssignedIdentities/', AzureLogAnalytics_ManagedIdentity_name)
-              type: 'ManagedServiceIdentity'
-            }
-            method: 'GET'
-            queries: {
-              query: '42-is-the-answer'
-            }
-
-            uri: '${rootUrl}/v1/workspaces/${workspace.properties.customerId}/query'
+  actions: {
+    HTTP_create_item_in_list: {
+      runAfter: {
+        HTTP_get_logs: [
+          'Succeeded'
+        ]
+      }
+      type: 'Http'
+      inputs: {
+        authentication: {
+          audience: 'https://graph.microsoft.com'
+          identity: resourceId('Microsoft.ManagedIdentity/userAssignedIdentities/', AzureLogAnalytics_ManagedIdentity_name)
+          type: 'ManagedServiceIdentity'
+        }
+        body: {
+          fields: {
+            Title: '@{body(\'HTTP_get_logs\')?[\'tables\'][0]?[\'rows\'][0][0]}'
           }
         }
+        headers: {
+          'content-type': 'application/json'
+        }
+        method: 'POST'
+        uri: 'https://graph.microsoft.com/v1.0/sites/${siteID}/lists/${listId}/items'
       }
-      outputs: {}
     }
-    parameters: {}
+    HTTP_get_logs: {
+      runAfter: {}
+      type: 'Http'
+      inputs: {
+        authentication: {
+          audience: rootUrl
+          identity:resourceId('Microsoft.ManagedIdentity/userAssignedIdentities/', AzureLogAnalytics_ManagedIdentity_name)
+          type: 'ManagedServiceIdentity'
+        }
+        method: 'GET'
+        queries: {
+          query: 'print "42"'
+        }
+        uri: '${rootUrl}/v1/workspaces/${workspace.properties.customerId}/query'
+      }
+    }
+  }
+  outputs: {}
+  }
+  parameters: {}
   }
 }
 
@@ -91,9 +116,6 @@ resource roleAssignment 'Microsoft.Authorization/roleAssignments@2020-04-01-prev
     principalId: AzureLogAnalytics_ManagedIdentity_name_resource.properties.principalId
     principalType: 'ServicePrincipal'
   }
-  // dependsOn:[
-  //   managedIdentityDeployment
-  // ]
 }
 
 output workspace object = workspace
